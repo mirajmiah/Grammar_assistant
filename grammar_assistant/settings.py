@@ -76,8 +76,19 @@ WSGI_APPLICATION = 'grammar_assistant.wsgi.application'
 
 # Database - Switch to PostgreSQL for production
 DATABASES = {
-    'default': dj_database_url.config(default=os.environ.get('DATABASE_URL'), conn_max_age=600)
+    'default': dj_database_url.config(
+        default=os.environ.get('DATABASE_URL'),
+        conn_max_age=600,
+        conn_health_checks=True  # Optional for better connections
+    )
 }
+
+# Fallback for local dev (e.g., SQLite) - comment out in production
+if not DATABASES['default']:  # If empty
+    DATABASES['default'] = {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -105,4 +116,5 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Add for collection
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'  # Add for efficiency
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
 
