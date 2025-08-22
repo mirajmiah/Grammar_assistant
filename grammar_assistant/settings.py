@@ -22,7 +22,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 import os
 from pathlib import Path
-
+import dj_database_url 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
@@ -76,14 +76,7 @@ WSGI_APPLICATION = 'grammar_assistant.wsgi.application'
 
 # Database - Switch to PostgreSQL for production
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME'),
-        'USER': os.environ.get('DB_USER'),
-        'PASSWORD': os.environ.get('DB_PASSWORD'),
-        'HOST': os.environ.get('DB_HOST'),
-        'PORT': os.environ.get('DB_PORT'),
-    }
+    'default': dj_database_url.config(default=os.environ.get('DATABASE_URL'), conn_max_age=600)
 }
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -112,3 +105,4 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Add for collection
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'  # Add for efficiency
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
