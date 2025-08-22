@@ -1,31 +1,37 @@
-import os
-import requests
+from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+import os
+import requests
 import logging
 
-logger = logging.getLogger(__name__)  # For logging errors
+logger = logging.getLogger(__name__)
 
-@csrf_exempt
-def check_grammar(request):  # Your API view
+def index(request):
+    # This renders your main page (index.html)
+    return render(request, 'assistant/index.html')
+
+@csrf_exempt  # Use for testing; add CSRF protection in production
+def check_grammar(request):
     if request.method == 'POST':
         text = request.POST.get('text', '')
-        api_key = os.environ.get('API_KEY')  # Fetch from env
-        logger.info(f"API_KEY fetched: {api_key}")  # Log to check if it's loaded
+        api_key = os.environ.get('API_KEY')
+        logger.info(f"API_KEY fetched: {api_key}")  # Log to verify
 
         if not api_key:
-            logger.error("API_KEY is missing or empty")
+            logger.error("API_KEY is missing")
             return JsonResponse({'error': 'API key not configured'})
 
         try:
-            response = requests.post('https://api.example.com/grammar-check',  # Replace with your real API URL
+            # Replace with your actual API URL (e.g., OpenAI endpoint)
+            response = requests.post('https://api.openai.com/v1/completions',  # Example for OpenAI
                                      headers={'Authorization': f'Bearer {api_key}'},
-                                     json={'text': text},
-                                     timeout=10)  # Add timeout to prevent hangs
+                                     json={'model': 'text-davinci-003', 'prompt': f'Correct grammar: {text}', 'max_tokens': 100})
             response.raise_for_status()
+            result = response.json()
             logger.info("API call successful")
-            return JsonResponse(response.json())
+            return JsonResponse({'corrected_text': result['choices'][0]['text'].strip()})
         except requests.RequestException as e:
             logger.error(f"API call failed: {str(e)}")
             return JsonResponse({'error': f'API error: {str(e)}'})
-    return JsonResponse({'error': 'Invalid request method'})
+    return JsonResponse({'error': 'Invalid request'})
