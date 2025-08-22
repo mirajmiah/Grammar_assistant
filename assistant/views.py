@@ -4,34 +4,71 @@ from django.views.decorators.csrf import csrf_exempt
 import os
 import requests
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 
 def index(request):
-    # This renders your main page (index.html)
     return render(request, 'assistant/index.html')
 
-@csrf_exempt  # Use for testing; add CSRF protection in production
+@csrf_exempt  # For testing; add CSRF in production forms
 def check_grammar(request):
     if request.method == 'POST':
         text = request.POST.get('text', '')
-        api_key = os.environ.get('API_KEY')
-        logger.info(f"API_KEY fetched: {api_key}")  # Log to verify
+        language = request.POST.get('language', 'en')  # Get language from JS
+        api_key = os.environ.get('API_KEY')  # Pull from Render env var
 
         if not api_key:
-            logger.error("API_KEY is missing")
-            return JsonResponse({'error': 'API key not configured'})
+            logger.error("API_KEY missing")
+            return JsonResponse({'error': 'API key not configured'}, status=500)
+
+        api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+
+        # Your prompt from script.js, adapted
+        language_map = {'en': 'English', 'es': 'Spanish', 'fr': 'French', 'de': 'German', 'bn': 'Bengali'}
+        target_lang = language_map.get(language, 'English')
+        prompt = f"""
+        Analyze the user's text: "{text}".
+        Provide a response as a single, valid JSON object. All explanations MUST be in {target_lang}.
+        The JSON must have this exact structure:
+        {{
+            "original": "The original text.",
+            "corrected": "The corrected text.",
+            "translation": "The full meaning in {target_lang}",
+            "errors": [
+                {{
+                    "wrong": "incorrect phrase",
+                    "correct": "correction",
+                    "explanation": "Detailed explanation including verb tense rules if applicable.",
+                    "tenseExplanation": "Explanation of why the tense is incorrect and how to use it correctly"
+                }}
+            ],
+            "rewrites": {{
+                "formal": "Formal rewrite.",
+                "informal": "Informal rewrite.",
+                "polite": "Polite rewrite."
+            }},
+            "prediction": "A likely next sentence."
+        }}
+        If no errors, "errors" must be an empty array. Do not include any text or markdown outside of the JSON object.
+        For verb tense errors, provide detailed explanations about why the tense is incorrect and how to use the correct tense.
+        """
+
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"responseMimeType": "application/json"}
+        }
 
         try:
-            # Replace with your actual API URL (e.g., OpenAI endpoint)
-            response = requests.post('https://api.openai.com/v1/completions',  # Example for OpenAI
-                                     headers={'Authorization': f'Bearer {api_key}'},
-                                     json={'model': 'text-davinci-003', 'prompt': f'Correct grammar: {text}', 'max_tokens': 100})
+            response = requests.post(api_url, json=payload, timeout=10)
             response.raise_for_status()
             result = response.json()
+            json_text = result.get('candidates', [{}])[0].get('content', {}).get('parts', [{}]).get('text', '{}')
+            parsed_response = json.loads(json_text)
             logger.info("API call successful")
-            return JsonResponse({'corrected_text': result['choices'][0]['text'].strip()})
-        except requests.RequestException as e:
+            return JsonResponse(parsed_response)
+        except (requests.RequestException, json.JSONDecodeError) as e:
             logger.error(f"API call failed: {str(e)}")
-            return JsonResponse({'error': f'API error: {str(e)}'})
-    return JsonResponse({'error': 'Invalid request'})
+            return JsonResponse({'error': f'API error: {str(e)}'}, status=500)
+
+    return JsonResponse({'error': 'Invalid request'}, status=400)
