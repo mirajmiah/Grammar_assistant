@@ -366,68 +366,25 @@ function renderSimpleBotMessage(container, text) {
 }
 
 // --- API Call ---
+// ... (keep your existing code, replace getGrammarCorrection with this)
+
 async function getGrammarCorrection(text, language) {
-    const apiKey = CONFIG.GEMINI_API_KEY;
-     
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-    const languageMap = { en: 'English', es: 'Spanish', fr: 'French', de: 'German', bn: 'Bengali' };
-    const targetLanguage = languageMap[language] || 'English';
-    const escapedText = escapeHtml(text);
-
-    const prompt = `
-        Analyze the user's text: "${escapedText}".
-        Provide a response as a single, valid JSON object. All explanations MUST be in ${targetLanguage}.
-        The JSON must have this exact structure:
-        {
-            "original": "The original text.",
-            "corrected": "The corrected text.",
-            "translation": "The full meaning in ${targetLanguage}",
-            "errors": [
-                {
-                    "wrong": "incorrect phrase",
-                    "correct": "correction",
-                    "explanation": "Detailed explanation including verb tense rules if applicable.",
-                    "tenseExplanation": "Explanation of why the tense is incorrect and how to use it correctly"
-                }
-            ],
-            "rewrites": {
-                "formal": "Formal rewrite.",
-                "informal": "Informal rewrite.",
-                "polite": "Polite rewrite."
-            },
-            "prediction": "A likely next sentence."
-        }
-        If no errors, "errors" must be an empty array. Do not include any text or markdown outside of the JSON object.
-        For verb tense errors, provide detailed explanations about why the tense is incorrect and how to use the correct tense.
-    `;
-
-    const payload = {
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: "application/json" }
-    };
-    
-    const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) throw new Error(`API request failed: ${response.status}`);
-    const result = await response.json();
-    
-    if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
-        const jsonText = result.candidates[0].content.parts[0].text;
-        try {
-            return JSON.parse(jsonText);
-        } catch (e) {
-            console.error("Failed to parse JSON from API:", jsonText);
-            throw new Error(`The API returned malformed data. ${e.message}`);
-        }
-    } else {
-        console.error("Unexpected API response structure:", result);
-        throw new Error("Invalid content in API response.");
+    try {
+        const response = await fetch('/check-grammar/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `text=${encodeURIComponent(text)}&language=${language}`
+        });
+        if (!response.ok) throw new Error(`Server error: ${response.status}`);
+        return await response.json();
+    } catch (error) {
+        console.error("Server fetch error:", error);
+        throw error;
     }
 }
+
+// Remove CONFIG.GEMINI_API_KEY and the direct fetch - it's now server-side
+
 
 // --- HTML Generation ---
 function generateHighlightedSentence(original, corrected) {
