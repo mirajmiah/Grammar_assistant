@@ -1,22 +1,9 @@
-from django.shortcuts import render
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-import os
-import requests
-import logging
-import json
-
-logger = logging.getLogger(__name__)
-
-def index(request):
-    return render(request, 'assistant/index.html')
-
-@csrf_exempt  # For testing; add CSRF in production forms
+@csrf_exempt
 def check_grammar(request):
     if request.method == 'POST':
         text = request.POST.get('text', '')
         language = request.POST.get('language', 'en')  # Get language from JS
-        api_key = os.environ.get('API_KEY')  # Pull from Render env var
+        api_key = os.environ.get('API_KEY')
 
         if not api_key:
             logger.error("API_KEY missing")
@@ -24,7 +11,7 @@ def check_grammar(request):
 
         api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
 
-        # Your prompt from script.js, adapted
+        # Your prompt (keep as is)
         language_map = {'en': 'English', 'es': 'Spanish', 'fr': 'French', 'de': 'German', 'bn': 'Bengali'}
         target_lang = language_map.get(language, 'English')
         prompt = f"""
@@ -63,7 +50,8 @@ def check_grammar(request):
             response = requests.post(api_url, json=payload, timeout=10)
             response.raise_for_status()
             result = response.json()
-            json_text = result.get('candidates', [{}])[0].get('content', {}).get('parts', [{}]).get('text', '{}')
+            # Fixed line: Add [0] after get('parts', [{}]) since 'parts' is a list
+            json_text = result.get('candidates', [{}]).get('content', {}).get('parts', [{}]).get('text', '{}')
             parsed_response = json.loads(json_text)
             logger.info("API call successful")
             return JsonResponse(parsed_response)
